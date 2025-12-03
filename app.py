@@ -10,8 +10,20 @@ st.set_page_config(page_title="Churn Prediction", page_icon="🎯", layout="wide
 @st.cache_resource
 def load_model():
     if not os.path.exists('models/churn_model.pkl'):
-        st.error("❌ Model not found! Please train the model first.")
-        st.stop()
+        st.warning("⚠️ Model not found! Training model now...")
+        st.info("This will take ~2 minutes on first run, then cached forever.")
+        
+        # Import training function
+        import subprocess
+        result = subprocess.run(['python', 'train_balanced.py'], 
+                              capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            st.error(f"Training failed: {result.stderr}")
+            st.stop()
+        
+        st.success("✅ Model trained successfully!")
+    
     model = joblib.load('models/churn_model.pkl')
     scaler = joblib.load('models/scaler.pkl')
     feature_names = joblib.load('models/feature_names.pkl')
