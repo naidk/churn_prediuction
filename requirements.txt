@@ -1,0 +1,22 @@
+# requirements.txt — compatible stack (avoids NumPy 2 ABI issues)
+ipykernel
+numpy
+pandas
+scikit-learn
+scipy         # stable with numpy<2
+matplotlib        # stable with numpy<2
+seaborn       # works with pandas 2.x + mpl 3.8
+plotly
+missingno
+xgboost
+lightgbm
+catboost
+statsmodels     # compatible with numpy<2
+# DO NOT add: matplotlib.backends  ← (not a package)
+plotly
+nbformat>=4.2.0
+ipywidgets
+jupyterlab
+ipython
+streamlit
+joblib
