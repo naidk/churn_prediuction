@@ -78,15 +78,13 @@ def train_model_inline():
 @st.cache_resource
 def load_model():
     if not os.path.exists('models/churn_model.pkl'):
-        st.warning("⚠️ Model not found! Training model now...")
-        st.info("This will take ~2 minutes on first run, then cached forever.")
-        
-        try:
-            train_model_inline()
-            st.success("✅ Model trained successfully!")
-        except Exception as e:
-            st.error(f"Training failed: {str(e)}")
-            st.stop()
+        with st.spinner("⚙️ Training model for the first time... (This takes ~2 mins)"):
+            try:
+                train_model_inline()
+                st.success("✅ Model trained & ready!")
+            except Exception as e:
+                st.error(f"Training failed: {str(e)}")
+                st.stop()
     
     model = joblib.load('models/churn_model.pkl')
     scaler = joblib.load('models/scaler.pkl')
