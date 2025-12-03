@@ -6,6 +6,74 @@ import os
 
 st.set_page_config(page_title="Churn Prediction", page_icon="🎯", layout="wide")
 
+# Train model function
+def train_model_inline():
+    """Train the model if it doesn't exist"""
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import train_test_split
+    from imblearn.over_sampling import SMOTE
+    
+    # Load data
+    df = pd.read_csv("WA_Fn-UseC_-Telco-Customer-Churn.csv")
+    df = df.copy()
+    
+    # Clean data
+    if 'TotalCharges' in df.columns:
+        df['TotalCharges'] = pd.to_numeric(df['TotalCharges'].astype(str).str.strip().replace('', np.nan), errors='coerce')
+        df['TotalCharges'] = df['TotalCharges'].fillna(df['TotalCharges'].median())
+    
+    for c in df.select_dtypes(include=['object']).columns:
+        df[c] = df[c].astype(str).str.strip()
+    
+    if 'customerID' in df.columns:
+        df = df.drop(columns=['customerID'])
+    
+    service_cols = [c for c in df.columns if any(s in c for s in ['OnlineSecurity','OnlineBackup','DeviceProtection','TechSupport','StreamingTV','StreamingMovies','MultipleLines'])]
+    for c in service_cols:
+        df[c] = df[c].replace({'No internet service':'No', 'No phone service':'No'})
+    
+    binaries = [c for c in df.columns if df[c].dropna().isin(['Yes','No']).all()]
+    for c in binaries:
+        df[c] = df[c].map({'Yes':1, 'No':0})
+    
+    obj_cols = [c for c in df.select_dtypes(include=['object']).columns if c != 'Churn']
+    df = pd.get_dummies(df, columns=obj_cols, drop_first=True)
+    
+    # Prepare features and target
+    y = df['Churn'].map({'Yes':1, 'No':0}) if df['Churn'].dtype == 'object' else df['Churn']
+    X = df.drop(columns=['Churn'])
+    
+    # Scale
+    num_features = X.select_dtypes(include=[np.number]).columns.tolist()
+    scaler = StandardScaler()
+    X[num_features] = scaler.fit_transform(X[num_features])
+    
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+    
+    # Apply SMOTE
+    smote = SMOTE(random_state=42)
+    X_train_balanced, y_train_balanced = smote.fit_resample(X_train, y_train)
+    
+    # Train model
+    model = RandomForestClassifier(
+        n_estimators=1000,
+        max_depth=20,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features='sqrt',
+        random_state=42,
+        n_jobs=-1
+    )
+    model.fit(X_train_balanced, y_train_balanced)
+    
+    # Save model
+    os.makedirs('models', exist_ok=True)
+    joblib.dump(model, 'models/churn_model.pkl')
+    joblib.dump(scaler, 'models/scaler.pkl')
+    joblib.dump(X.columns.tolist(), 'models/feature_names.pkl')
+
 # Load model
 @st.cache_resource
 def load_model():
@@ -13,16 +81,12 @@ def load_model():
         st.warning("⚠️ Model not found! Training model now...")
         st.info("This will take ~2 minutes on first run, then cached forever.")
         
-        # Import training function
-        import subprocess
-        result = subprocess.run(['python', 'train_balanced.py'], 
-                              capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            st.error(f"Training failed: {result.stderr}")
+        try:
+            train_model_inline()
+            st.success("✅ Model trained successfully!")
+        except Exception as e:
+            st.error(f"Training failed: {str(e)}")
             st.stop()
-        
-        st.success("✅ Model trained successfully!")
     
     model = joblib.load('models/churn_model.pkl')
     scaler = joblib.load('models/scaler.pkl')
