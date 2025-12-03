@@ -20,3 +20,4 @@ jupyterlab
 ipython
 streamlit
 joblib
+imbalanced-learn
